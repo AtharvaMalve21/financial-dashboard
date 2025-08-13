@@ -24,3 +24,19 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+::-webkit-scrollbar {
+  display: none;
+}
+
+.element {
+  /* Fallback color that html2canvas can understand */
+  background-color: #ff6b6b;
+  color: #333333;
+  
+  /* Modern color only for browsers that support it */
+  @supports (color: oklch(0% 0 0)) {
+    background-color: oklch(70% 0.25 15);
+    color: oklch(20% 0.02 280);
+  }
+}

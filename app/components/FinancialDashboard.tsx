@@ -1,14 +1,27 @@
 "use client"
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   ComposedChart, ScatterChart, Scatter, Cell
 } from 'recharts';
 import { 
   Menu, Bell, User, TrendingUp, TrendingDown, Eye, 
-  Sun, Moon, BarChart3, PieChart, Users, CreditCard 
+  Sun, Moon, BarChart3, PieChart, Users, CreditCard, Download
 } from 'lucide-react';
+
+// Type definitions
+interface HTMLCanvasOptions {
+  scale?: number;
+  useCORS?: boolean;
+  allowTaint?: boolean;
+  backgroundColor?: string;
+  logging?: boolean;
+  height?: number;
+  width?: number;
+  scrollX?: number;
+  scrollY?: number;
+}
 
 // Mock data
 const aumData = { value: '₹2,45,67,890', change: '+12.5%', isPositive: true };
@@ -60,17 +73,134 @@ const FinancialDashboard = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [activeTimeRange, setActiveTimeRange] = useState('30 Days');
   const [loading, setLoading] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const dashboardRef = useRef<HTMLDivElement>(null);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
   };
 
   const handleTimeRangeChange = async (range: string) => {
-  setLoading(true);
-  setActiveTimeRange(range);
-  // Simulate API call
-  setTimeout(() => setLoading(false), 800);
-};
+    setLoading(true);
+    setActiveTimeRange(range);
+    // Simulate API call
+    setTimeout(() => setLoading(false), 800);
+  };
+
+  // Fixed PDF Generation with proper TypeScript
+  const generatePDF = async () => {
+    if (!dashboardRef.current) {
+      alert('Dashboard not ready. Please wait and try again.');
+      return;
+    }
+    
+    setIsGeneratingPDF(true);
+    
+    try {
+      // Check if we're in browser environment
+      if (typeof window === 'undefined') {
+        throw new Error('PDF generation only works in browser environment');
+      }
+
+      // Wait for any pending operations
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Dynamic import with proper typing
+      let html2canvas: any, jsPDF: any;
+      let retries = 3;
+      
+      while (retries > 0) {
+        try {
+          const [html2canvasModule, jsPDFModule] = await Promise.all([
+            import('html2canvas'),
+            import('jspdf')
+          ]);
+          html2canvas = html2canvasModule.default;
+          jsPDF = jsPDFModule.default;
+          break;
+        } catch (importError) {
+          retries--;
+          if (retries === 0) {
+            throw new Error('Failed to load PDF libraries. Please refresh the page.');
+          }
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+      
+      // Capture screenshot with proper options
+      const options: HTMLCanvasOptions = {
+        scale: 1.5,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: darkMode ? '#111827' : '#ffffff',
+        logging: false,
+        height: dashboardRef.current.scrollHeight,
+        width: dashboardRef.current.scrollWidth,
+        scrollX: 0,
+        scrollY: 0
+      };
+
+      const canvas = await html2canvas(dashboardRef.current, options);
+      
+      const imgData = canvas.toDataURL('image/png', 0.9);
+      
+      // Create PDF with proper constructor
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Add title
+      pdf.setFontSize(20);
+      pdf.text('Financial Dashboard Report', 105, 25, { align: 'center' });
+      
+      pdf.setFontSize(12);
+      pdf.text(`Date: ${new Date().toLocaleDateString()}`, 105, 35, { align: 'center' });
+      pdf.text(`Period: ${activeTimeRange}`, 105, 42, { align: 'center' });
+      
+      // Add image
+      pdf.addImage(imgData, 'PNG', 0, 50, imgWidth, imgHeight);
+      
+      // Handle multiple pages if needed
+      if (imgHeight > 240) {
+        let heightLeft = imgHeight - 240;
+        let position = -240;
+        
+        while (heightLeft > 0) {
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          position -= 297;
+          heightLeft -= 297;
+        }
+      }
+      
+      // Save file
+      const fileName = `dashboard-report-${Date.now()}.pdf`;
+      pdf.save(fileName);
+      
+    } catch (error: unknown) {
+      console.error('PDF Generation Error:', error);
+      
+      let errorMsg = 'PDF generation failed. ';
+      if (error instanceof Error) {
+        if (error.message?.includes('load PDF libraries')) {
+          errorMsg += 'Please refresh the page and try again.';
+        } else {
+          errorMsg += 'Please try again or contact support if the issue persists.';
+        }
+      } else {
+        errorMsg += 'Unknown error occurred.';
+      }
+      
+      alert(errorMsg);
+    } finally {
+      setIsGeneratingPDF(false);
+    }
+  };
 
   const theme = darkMode ? 'dark' : '';
 
@@ -100,6 +230,20 @@ const FinancialDashboard = () => {
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* PDF Export Button */}
+            <button
+              onClick={generatePDF}
+              disabled={isGeneratingPDF || loading}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-all duration-200 
+                ${isGeneratingPDF || loading 
+                  ? 'opacity-50 cursor-not-allowed' 
+                  : 'hover:bg-green-700'
+                } bg-green-600 text-white text-sm font-medium shadow-sm hover:shadow-md`}
+            >
+              <Download className="h-4 w-4" />
+              <span>{isGeneratingPDF ? 'Generating...' : 'Export PDF'}</span>
+            </button>
+            
             <button
               onClick={toggleDarkMode}
               className={`p-2 rounded-md transition-colors ${darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}`}
@@ -113,7 +257,18 @@ const FinancialDashboard = () => {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      {/* Dashboard Content - Wrapped in ref for PDF capture */}
+      <div ref={dashboardRef} className="max-w-7xl mx-auto px-4 py-6">
+        {/* PDF Generation Loading Overlay */}
+        {isGeneratingPDF && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-lg flex items-center space-x-4`}>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+              <span className="text-lg font-medium">Generating PDF Report...</span>
+            </div>
+          </div>
+        )}
+
         {/* Main Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} p-6 rounded-lg shadow-sm`}>
