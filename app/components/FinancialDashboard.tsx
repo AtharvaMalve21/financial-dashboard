@@ -65,12 +65,12 @@ const FinancialDashboard = () => {
     setDarkMode(!darkMode);
   };
 
-  const handleTimeRangeChange = async (range) => {
-    setLoading(true);
-    setActiveTimeRange(range);
-    // Simulate API call
-    setTimeout(() => setLoading(false), 800);
-  };
+  const handleTimeRangeChange = async (range: string) => {
+  setLoading(true);
+  setActiveTimeRange(range);
+  // Simulate API call
+  setTimeout(() => setLoading(false), 800);
+};
 
   const theme = darkMode ? 'dark' : '';
 
