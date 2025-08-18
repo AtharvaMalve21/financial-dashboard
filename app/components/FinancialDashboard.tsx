@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   BarChart,
   Bar,
@@ -14,7 +14,6 @@ import {
   ComposedChart,
   ScatterChart,
   Scatter,
-  Cell,
 } from "recharts";
 import {
   Menu,
@@ -28,8 +27,7 @@ import {
   BarChart3,
   PieChart,
   Users,
-  CreditCard,
-  Download,
+  Printer,
 } from "lucide-react";
 
 // Mock data
@@ -72,7 +70,7 @@ const monthlyMisData = [
 
 const navItems = [
   "CRM",
-  "Utilities",
+  "Utilities", 
   "Insurance",
   "Assets",
   "Mutual",
@@ -90,8 +88,6 @@ const FinancialDashboard = () => {
   const [darkMode, setDarkMode] = useState(false);
   const [activeTimeRange, setActiveTimeRange] = useState("30 Days");
   const [loading, setLoading] = useState(false);
-  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const dashboardRef = useRef<HTMLDivElement>(null);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -104,315 +100,94 @@ const FinancialDashboard = () => {
     setTimeout(() => setLoading(false), 800);
   };
 
-  // Enhanced PDF generation with proper OKLCH/color fixes
-  const generatePDF = async () => {
-    if (!dashboardRef.current) {
-      alert("Dashboard not ready. Please wait and try again.");
-      return;
-    }
-
-    setIsGeneratingPDF(true);
-
-    try {
-      // Wait for any pending renders
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Create comprehensive style override to fix OKLCH and modern CSS issues
-      const styleOverride = document.createElement("style");
-      styleOverride.id = "pdf-style-override";
-      styleOverride.textContent = `
-        /* Force simple color values for PDF export */
-        * {
-          color-scheme: none !important;
-          -webkit-color-scheme: none !important;
+  // Simple and reliable print function
+  const handlePrintExport = () => {
+    // Add print styles dynamically
+    const printStyles = document.createElement('style');
+    printStyles.id = 'dashboard-print-styles';
+    printStyles.textContent = `
+      @media print {
+        /* Hide everything except dashboard */
+        body > *:not(.dashboard-container) {
+          display: none !important;
         }
         
-        /* Override Tailwind classes with hex colors */
-        .bg-gray-50 { background-color: #f9fafb !important; }
-        .bg-gray-100 { background-color: #f3f4f6 !important; }
-        .bg-gray-200 { background-color: #e5e7eb !important; }
-        .bg-gray-300 { background-color: #d1d5db !important; }
-        .bg-gray-700 { background-color: #374151 !important; }
-        .bg-gray-800 { background-color: #1f2937 !important; }
-        .bg-gray-900 { background-color: #111827 !important; }
-        .bg-white { background-color: #ffffff !important; }
-        .bg-blue-600 { background-color: #2563eb !important; }
-        .bg-green-600 { background-color: #16a34a !important; }
-        .bg-red-500 { background-color: #ef4444 !important; }
-        
-        .text-white { color: #ffffff !important; }
-        .text-gray-900 { color: #111827 !important; }
-        .text-gray-800 { color: #1f2937 !important; }
-        .text-gray-700 { color: #374151 !important; }
-        .text-gray-600 { color: #4b5563 !important; }
-        .text-gray-500 { color: #6b7280 !important; }
-        .text-gray-400 { color: #9ca3af !important; }
-        .text-gray-300 { color: #d1d5db !important; }
-        .text-blue-600 { color: #2563eb !important; }
-        .text-green-500 { color: #22c55e !important; }
-        .text-red-500 { color: #ef4444 !important; }
-        
-        .border-gray-200 { border-color: #e5e7eb !important; }
-        .border-gray-700 { border-color: #374151 !important; }
-        
-        /* Force all elements to use simple colors */
-        [style*="oklch"], [style*="color-mix"], [style*="lab"] {
-          color: ${darkMode ? "#ffffff" : "#111827"} !important;
-          background-color: ${darkMode ? "#1f2937" : "#ffffff"} !important;
+        /* Show only dashboard content */
+        .dashboard-container {
+          display: block !important;
+          position: static !important;
+          transform: none !important;
+          background: white !important;
+          color: black !important;
+          width: 100% !important;
+          height: auto !important;
+          overflow: visible !important;
         }
         
-        /* Disable problematic CSS features */
-        * {
-          backdrop-filter: none !important;
-          filter: none !important;
-          mask: none !important;
-          clip-path: none !important;
+        /* Hide interactive elements */
+        .no-print {
+          display: none !important;
         }
-      `;
-      document.head.appendChild(styleOverride);
-
-      // Dynamic import with retry logic
-      let html2canvas: any, jsPDF: any;
-      let retries = 3;
-
-      while (retries > 0) {
-        try {
-          const [html2canvasModule, jsPDFModule] = await Promise.all([
-            import("html2canvas"),
-            import("jspdf"),
-          ]);
-          html2canvas = html2canvasModule.default;
-          jsPDF = jsPDFModule.default;
-          break;
-        } catch (importError) {
-          retries--;
-          if (retries === 0) {
-            throw new Error(
-              "Failed to load PDF libraries after multiple attempts"
-            );
-          }
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+        
+        /* Fix dark mode colors for print */
+        .print-light {
+          background-color: white !important;
+          color: black !important;
         }
-      }
-
-      // Enhanced capture options
-      const canvas = await html2canvas(dashboardRef.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: darkMode ? "#111827" : "#ffffff",
-        logging: false,
-        removeContainer: true,
-        foreignObjectRendering: false, // Disable to avoid CSS parsing issues
-        ignoreElements: (element) => {
-          // Skip problematic elements
-          const classList = Array.from(element.classList);
-          const hasProblematicClass = classList.some(
-            (cls) =>
-              cls.includes("animate-") ||
-              cls.includes("transition-") ||
-              element.tagName === "STYLE"
-          );
-          return hasProblematicClass || element.hasAttribute("data-ignore-pdf");
-        },
-        onclone: (clonedDoc, element) => {
-          const allElements = clonedDoc.querySelectorAll("*");
-          allElements.forEach((el: any) => {
-            if (el.style) {
-              // ✅ Use clonedDoc’s window, not the main window
-              const styles = clonedDoc.defaultView?.getComputedStyle(el);
-
-              el.style.colorScheme = "none";
-              el.style.filter = "none";
-              el.style.backdropFilter = "none";
-              el.style.mask = "none";
-              el.style.clipPath = "none";
-
-              if (styles) {
-                if (
-                  styles.backgroundColor?.includes("oklch") ||
-                  styles.backgroundColor?.includes("color-mix") ||
-                  styles.backgroundColor?.includes("lab")
-                ) {
-                  el.style.backgroundColor = darkMode ? "#1f2937" : "#ffffff";
-                }
-
-                if (
-                  styles.color?.includes("oklch") ||
-                  styles.color?.includes("color-mix") ||
-                  styles.color?.includes("lab")
-                ) {
-                  el.style.color = darkMode ? "#ffffff" : "#111827";
-                }
-
-                if (
-                  styles.borderColor?.includes("oklch") ||
-                  styles.borderColor?.includes("color-mix") ||
-                  styles.borderColor?.includes("lab")
-                ) {
-                  el.style.borderColor = darkMode ? "#374151" : "#e5e7eb";
-                }
-              }
-            }
-          });
-
-          clonedDoc.body.style.transform = "scale(1)";
-          clonedDoc.body.style.transformOrigin = "top left";
-          clonedDoc.body.style.width = element.scrollWidth + "px";
-          clonedDoc.body.style.height = element.scrollHeight + "px";
-        },
-      });
-
-      // Create PDF
-      const imgData = canvas.toDataURL("image/png", 0.95);
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-        compress: true,
-      });
-
-      // Calculate dimensions
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-      const imgWidth = pdfWidth;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      // Add header
-      pdf.setFontSize(18);
-      pdf.text("Financial Dashboard Report", pdfWidth / 2, 20, {
-        align: "center",
-      });
-
-      pdf.setFontSize(10);
-      const currentDate = new Date().toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-      pdf.text(`Generated: ${currentDate}`, pdfWidth / 2, 28, {
-        align: "center",
-      });
-      pdf.text(`Period: ${activeTimeRange}`, pdfWidth / 2, 34, {
-        align: "center",
-      });
-
-      // Add dashboard image
-      const startY = 40;
-      const availableHeight = pdfHeight - startY - 10;
-
-      if (imgHeight <= availableHeight) {
-        // Single page
-        pdf.addImage(imgData, "PNG", 0, startY, imgWidth, imgHeight);
-      } else {
-        // Multiple pages for long dashboards
-        let currentHeight = imgHeight;
-        let sourceY = 0;
-        let pageCount = 0;
-
-        while (currentHeight > 0) {
-          if (pageCount > 0) {
-            pdf.addPage();
-          }
-
-          const pageImageHeight = Math.min(currentHeight, availableHeight);
-
-          // Create temporary canvas for this page section
-          const tempCanvas = document.createElement("canvas");
-          const tempCtx = tempCanvas.getContext("2d");
-          tempCanvas.width = canvas.width;
-          tempCanvas.height = (pageImageHeight * canvas.width) / imgWidth;
-
-          if (tempCtx) {
-            tempCtx.drawImage(
-              canvas,
-              0,
-              sourceY,
-              canvas.width,
-              tempCanvas.height,
-              0,
-              0,
-              canvas.width,
-              tempCanvas.height
-            );
-
-            const tempImgData = tempCanvas.toDataURL("image/png", 0.95);
-            pdf.addImage(
-              tempImgData,
-              "PNG",
-              0,
-              startY,
-              imgWidth,
-              pageImageHeight
-            );
-          }
-
-          currentHeight -= availableHeight;
-          sourceY += (availableHeight * canvas.width) / imgWidth;
-          pageCount++;
+        
+        .print-border {
+          border: 1px solid #e5e7eb !important;
+        }
+        
+        /* Ensure charts print properly */
+        .recharts-wrapper {
+          background: white !important;
+        }
+        
+        /* Page settings */
+        @page {
+          margin: 15mm;
+          size: A4 portrait;
+        }
+        
+        /* Prevent page breaks in cards */
+        .stat-card, .chart-container {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+        
+        /* Add some spacing for print */
+        .print-section {
+          margin-bottom: 20px;
         }
       }
-
-      // Generate filename with timestamp
-      const timestamp = new Date()
-        .toISOString()
-        .slice(0, 19)
-        .replace(/:/g, "-")
-        .replace("T", "_");
-      const filename = `financial-dashboard-${activeTimeRange
-        .toLowerCase()
-        .replace(/\s+/g, "-")}-${timestamp}.pdf`;
-
-      pdf.save(filename);
-
-      // Cleanup
-      const styleElement = document.getElementById("pdf-style-override");
-      if (styleElement) {
-        document.head.removeChild(styleElement);
-      }
-    } catch (error: unknown) {
-      console.error("PDF Generation Error:", error);
-
-      let errorMsg = "PDF generation failed. ";
-      if (error instanceof Error) {
-        if (error.message.includes("load PDF libraries")) {
-          errorMsg += "Please refresh the page and try again.";
-        } else if (
-          error.message.includes("oklch") ||
-          error.message.includes("color function")
-        ) {
-          errorMsg +=
-            "Color compatibility issue detected. Using browser print instead.";
-          window.print();
-          return;
-        } else {
-          errorMsg += "Please try again or use browser print (Ctrl+P).";
+    `;
+    
+    document.head.appendChild(printStyles);
+    
+    // Brief delay to ensure styles are applied
+    setTimeout(() => {
+      window.print();
+      
+      // Clean up after print
+      setTimeout(() => {
+        const styleElement = document.getElementById('dashboard-print-styles');
+        if (styleElement) {
+          document.head.removeChild(styleElement);
         }
-      }
-
-      if (
-        confirm(errorMsg + "\n\nWould you like to use browser print instead?")
-      ) {
-        window.print();
-      }
-    } finally {
-      setIsGeneratingPDF(false);
-    }
+      }, 1000);
+    }, 100);
   };
-
-  const theme = darkMode ? "dark" : "";
 
   return (
     <div
-      className={`min-h-screen transition-colors duration-300 ${
+      className={`dashboard-container min-h-screen transition-colors duration-300 ${
         darkMode ? "bg-gray-900 text-white" : "bg-gray-50 text-gray-900"
       }`}
     >
       {/* Navigation */}
       <nav
-        className={`${
+        className={`no-print ${
           darkMode ? "bg-gray-800 border-gray-700" : "bg-white border-gray-200"
         } border-b px-4 py-3`}
       >
@@ -442,19 +217,19 @@ const FinancialDashboard = () => {
           </div>
 
           <div className="flex items-center space-x-4">
-            {/* Enhanced PDF Export Button */}
+            {/* Fixed Export Button */}
             <button
-              onClick={generatePDF}
-              disabled={isGeneratingPDF || loading}
+              onClick={handlePrintExport}
+              disabled={loading}
               className={`flex items-center space-x-2 px-4 py-2 rounded-md transition-all duration-200 
                 ${
-                  isGeneratingPDF || loading
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:bg-green-700"
-                } bg-green-600 text-white text-sm font-medium shadow-sm hover:shadow-md`}
+                  loading
+                    ? "opacity-50 cursor-not-allowed bg-gray-400"
+                    : "hover:bg-green-700 bg-green-600"
+                } text-white text-sm font-medium shadow-sm hover:shadow-md`}
             >
-              <Download className="h-4 w-4" />
-              <span>{isGeneratingPDF ? "Generating..." : "Export PDF"}</span>
+              <Printer className="h-4 w-4" />
+              <span>Print/Export</span>
             </button>
 
             <button
@@ -476,33 +251,30 @@ const FinancialDashboard = () => {
         </div>
       </nav>
 
-      {/* Dashboard Content - Wrapped in ref for PDF capture */}
-      <div ref={dashboardRef} className="max-w-7xl mx-auto px-4 py-6">
-        {/* PDF Generation Loading Overlay */}
-        {isGeneratingPDF && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div
-              className={`${
-                darkMode ? "bg-gray-800" : "bg-white"
-              } p-6 rounded-lg shadow-lg flex items-center space-x-4`}
-            >
-              <div
-                className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"
-                data-ignore-pdf
-              ></div>
-              <span className="text-lg font-medium">
-                Generating PDF Report...
-              </span>
-            </div>
+      {/* Dashboard Content */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        {/* Print Header - Only visible when printing */}
+        <div className="hidden print:block print-section">
+          <h1 className="text-2xl font-bold text-center mb-2">Financial Dashboard Report</h1>
+          <div className="text-center text-sm text-gray-600">
+            <p>Generated: {new Date().toLocaleDateString("en-US", {
+              year: "numeric",
+              month: "long", 
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            })}</p>
+            <p>Period: {activeTimeRange}</p>
           </div>
-        )}
+          <hr className="my-4" />
+        </div>
 
         {/* Main Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 print-section">
           <div
-            className={`${
+            className={`stat-card ${
               darkMode ? "bg-gray-800" : "bg-white"
-            } p-6 rounded-lg shadow-sm`}
+            } print-light print-border p-6 rounded-lg shadow-sm`}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">AUM</h3>
@@ -518,7 +290,7 @@ const FinancialDashboard = () => {
                 >
                   MoM {aumData.change}
                 </span>
-                <button className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
+                <button className="no-print flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
                   <Eye className="h-4 w-4" />
                   <span>View Report</span>
                 </button>
@@ -527,9 +299,9 @@ const FinancialDashboard = () => {
           </div>
 
           <div
-            className={`${
+            className={`stat-card ${
               darkMode ? "bg-gray-800" : "bg-white"
-            } p-6 rounded-lg shadow-sm`}
+            } print-light print-border p-6 rounded-lg shadow-sm`}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">SIP</h3>
@@ -545,7 +317,7 @@ const FinancialDashboard = () => {
                 >
                   MoM {sipData.change}
                 </span>
-                <button className="flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
+                <button className="no-print flex items-center space-x-1 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors">
                   <Eye className="h-4 w-4" />
                   <span>View Report</span>
                 </button>
@@ -555,7 +327,7 @@ const FinancialDashboard = () => {
         </div>
 
         {/* Time Range Filter */}
-        <div className="mb-6">
+        <div className="mb-6 no-print">
           <div className="flex flex-wrap gap-2">
             {timeRanges.map((range) => (
               <button
@@ -577,14 +349,21 @@ const FinancialDashboard = () => {
           </div>
         </div>
 
+        {/* Print-only current period indicator */}
+        <div className="hidden print:block print-section">
+          <div className="text-center p-3 border rounded">
+            <p className="font-medium">Current Analysis Period: {activeTimeRange}</p>
+          </div>
+        </div>
+
         {/* Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6 print-section">
           {statCards.map((card, index) => (
             <div
               key={index}
-              className={`${
+              className={`stat-card ${
                 darkMode ? "bg-gray-800" : "bg-white"
-              } p-4 rounded-lg shadow-sm`}
+              } print-light print-border p-4 rounded-lg shadow-sm`}
             >
               <h4 className="text-sm font-medium text-gray-500 mb-2">
                 {card.title}
@@ -596,12 +375,12 @@ const FinancialDashboard = () => {
         </div>
 
         {/* Charts Section */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6 print-section">
           {/* Clients Bubble Chart */}
           <div
-            className={`${
+            className={`chart-container ${
               darkMode ? "bg-gray-800" : "bg-white"
-            } p-6 rounded-lg shadow-sm col-span-1`}
+            } print-light print-border p-6 rounded-lg shadow-sm col-span-1`}
           >
             <h3 className="text-lg font-semibold mb-4 flex items-center">
               <Users className="h-5 w-5 mr-2" />
@@ -609,10 +388,7 @@ const FinancialDashboard = () => {
             </h3>
             {loading ? (
               <div className="h-64 flex items-center justify-center">
-                <div
-                  className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
-                  data-ignore-pdf
-                ></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
@@ -638,9 +414,9 @@ const FinancialDashboard = () => {
 
           {/* SIP Business Chart */}
           <div
-            className={`${
+            className={`chart-container ${
               darkMode ? "bg-gray-800" : "bg-white"
-            } p-6 rounded-lg shadow-sm col-span-1`}
+            } print-light print-border p-6 rounded-lg shadow-sm col-span-1`}
           >
             <h3 className="text-lg font-semibold mb-4 flex items-center">
               <BarChart3 className="h-5 w-5 mr-2" />
@@ -648,10 +424,7 @@ const FinancialDashboard = () => {
             </h3>
             {loading ? (
               <div className="h-64 flex items-center justify-center">
-                <div
-                  className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
-                  data-ignore-pdf
-                ></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
@@ -686,9 +459,9 @@ const FinancialDashboard = () => {
 
           {/* Monthly MIS Chart */}
           <div
-            className={`${
+            className={`chart-container ${
               darkMode ? "bg-gray-800" : "bg-white"
-            } p-6 rounded-lg shadow-sm col-span-1 lg:col-span-2 xl:col-span-1`}
+            } print-light print-border p-6 rounded-lg shadow-sm col-span-1 lg:col-span-2 xl:col-span-1`}
           >
             <h3 className="text-lg font-semibold mb-4 flex items-center">
               <PieChart className="h-5 w-5 mr-2" />
@@ -696,10 +469,7 @@ const FinancialDashboard = () => {
             </h3>
             {loading ? (
               <div className="h-64 flex items-center justify-center">
-                <div
-                  className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"
-                  data-ignore-pdf
-                ></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height={250}>
@@ -746,9 +516,9 @@ const FinancialDashboard = () => {
 
         {/* Additional Info Panel */}
         <div
-          className={`${
+          className={`stat-card ${
             darkMode ? "bg-gray-800" : "bg-white"
-          } p-6 rounded-lg shadow-sm mt-6`}
+          } print-light print-border p-6 rounded-lg shadow-sm mt-6`}
         >
           <h3 className="text-lg font-semibold mb-4">Dashboard Summary</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
@@ -773,6 +543,16 @@ const FinancialDashboard = () => {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Print Instructions - Only visible during print */}
+        <div className="hidden print:block mt-6 p-4 border border-gray-300 rounded">
+          <h4 className="font-semibold mb-2">Export Instructions:</h4>
+          <ul className="text-sm space-y-1">
+            <li>• To save as PDF: Choose "Save as PDF" in the print dialog</li>
+            <li>• For best results: Use "More settings" and enable "Background graphics"</li>
+            <li>• Layout: Portrait orientation recommended</li>
+          </ul>
         </div>
       </div>
     </div>
