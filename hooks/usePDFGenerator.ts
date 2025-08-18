@@ -15,7 +15,6 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
     setIsGenerating(true);
     
     try {
-      // Load libraries with proper error handling
       const loadLibraries = async () => {
         try {
           const [html2canvasModule, jsPDFModule] = await Promise.all([
@@ -33,16 +32,11 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
       };
 
       const { html2canvas, jsPDF } = await loadLibraries();
-      
-      // Wait for any pending renders and styles to settle
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Create a style element to override problematic CSS
       const styleOverride = document.createElement('style');
       styleOverride.textContent = `
-        * {
-          color-scheme: none !important;
-        }
+        * { color-scheme: none !important; }
         .bg-gray-50 { background-color: #f9fafb !important; }
         .bg-gray-100 { background-color: #f3f4f6 !important; }
         .bg-gray-800 { background-color: #1f2937 !important; }
@@ -60,7 +54,6 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
       document.head.appendChild(styleOverride);
       
       try {
-        // Capture the element with enhanced options
         const canvas = await html2canvas(elementRef.current, {
           scale: 2,
           useCORS: true,
@@ -68,36 +61,28 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
           backgroundColor: darkMode ? '#111827' : '#ffffff',
           logging: false,
           removeContainer: true,
-          async: true,
-          foreignObjectRendering: false, // Disable to avoid CSS parsing issues
+          foreignObjectRendering: false,
           ignoreElements: (element) => {
-            // Skip elements that might cause color parsing issues
             const classList = element.classList;
             return classList.contains('animate-spin') || 
                    element.tagName === 'STYLE' ||
                    element.hasAttribute('data-ignore-pdf');
           },
           onclone: (clonedDoc, element) => {
-            // Force simple colors in cloned document
             const allElements = clonedDoc.querySelectorAll('*');
             allElements.forEach((el: any) => {
               if (el.style) {
-                // Remove any problematic CSS properties
                 el.style.colorScheme = 'normal';
                 el.style.filter = 'none';
-                
-                // Convert any modern color functions to simple hex/rgb
                 const computedStyle = window.getComputedStyle(element);
-                if (computedStyle.backgroundColor && computedStyle.backgroundColor.includes('oklch')) {
+                if (computedStyle.backgroundColor?.includes('oklch')) {
                   el.style.backgroundColor = darkMode ? '#1f2937' : '#ffffff';
                 }
-                if (computedStyle.color && computedStyle.color.includes('oklch')) {
+                if (computedStyle.color?.includes('oklch')) {
                   el.style.color = darkMode ? '#ffffff' : '#111827';
                 }
               }
             });
-            
-            // Ensure proper scaling
             clonedDoc.body.style.transform = 'scale(1)';
             clonedDoc.body.style.transformOrigin = 'top left';
             clonedDoc.body.style.width = element.scrollWidth + 'px';
@@ -105,7 +90,6 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
           }
         });
         
-        // Convert to PDF
         const imgData = canvas.toDataURL('image/png', 0.95);
         const pdf = new jsPDF({
           orientation: 'portrait',
@@ -114,13 +98,11 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
           compress: true
         });
         
-        // Calculate dimensions
         const pdfWidth = pdf.internal.pageSize.getWidth();
         const pdfHeight = pdf.internal.pageSize.getHeight();
         const imgWidth = pdfWidth;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         
-        // Add header
         pdf.setFontSize(18);
         pdf.text('Financial Dashboard Report', pdfWidth / 2, 20, { align: 'center' });
         
@@ -135,27 +117,20 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
         pdf.text(`Generated: ${currentDate}`, pdfWidth / 2, 28, { align: 'center' });
         pdf.text(`Period: ${activeTimeRange}`, pdfWidth / 2, 34, { align: 'center' });
         
-        // Add dashboard image
         const startY = 40;
         const availableHeight = pdfHeight - startY - 10;
         
         if (imgHeight <= availableHeight) {
-          // Single page
           pdf.addImage(imgData, 'PNG', 0, startY, imgWidth, imgHeight);
         } else {
-          // Multiple pages
           let currentHeight = imgHeight;
           let sourceY = 0;
           let pageCount = 0;
           
           while (currentHeight > 0) {
-            if (pageCount > 0) {
-              pdf.addPage();
-            }
+            if (pageCount > 0) pdf.addPage();
             
             const pageImageHeight = Math.min(currentHeight, availableHeight);
-            
-            // Create a temporary canvas for this page section
             const tempCanvas = document.createElement('canvas');
             const tempCtx = tempCanvas.getContext('2d');
             tempCanvas.width = canvas.width;
@@ -167,7 +142,6 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
                 0, sourceY, canvas.width, tempCanvas.height,
                 0, 0, canvas.width, tempCanvas.height
               );
-              
               const tempImgData = tempCanvas.toDataURL('image/png', 0.95);
               pdf.addImage(tempImgData, 'PNG', 0, startY, imgWidth, pageImageHeight);
             }
@@ -178,7 +152,6 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
           }
         }
         
-        // Generate filename with timestamp
         const timestamp = new Date().toISOString()
           .slice(0, 19)
           .replace(/:/g, '-')
@@ -186,17 +159,14 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
         const filename = `financial-dashboard-${activeTimeRange.toLowerCase().replace(/\s+/g, '-')}-${timestamp}.pdf`;
         
         pdf.save(filename);
-        
         return { success: true, filename };
         
       } finally {
-        // Clean up the style override
         document.head.removeChild(styleOverride);
       }
       
     } catch (error) {
       console.error('PDF Generation Error:', error);
-      
       let message = 'Failed to generate PDF. ';
       if (error instanceof Error) {
         if (error.message.includes('libraries failed to load')) {
@@ -209,19 +179,13 @@ export const usePDFGenerator = ({ darkMode, activeTimeRange }: UsePDFGeneratorPr
       } else {
         message += 'Unknown error occurred.';
       }
-      
-      // Fallback to browser print
       if (confirm(message + '\n\nWould you like to use browser print instead?')) {
         window.print();
       }
-      
     } finally {
       setIsGenerating(false);
     }
   }, [darkMode, activeTimeRange]);
 
-  return {
-    generatePDF,
-    isGenerating
-  };
+  return { generatePDF, isGenerating };
 };
