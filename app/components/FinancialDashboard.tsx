@@ -70,7 +70,7 @@ const monthlyMisData = [
 
 const navItems = [
   "CRM",
-  "Utilities", 
+  "Utilities",
   "Insurance",
   "Assets",
   "Mutual",
@@ -103,8 +103,8 @@ const FinancialDashboard = () => {
   // Simple and reliable print function
   const handlePrintExport = () => {
     // Add print styles dynamically
-    const printStyles = document.createElement('style');
-    printStyles.id = 'dashboard-print-styles';
+    const printStyles = document.createElement("style");
+    printStyles.id = "dashboard-print-styles";
     printStyles.textContent = `
       @media print {
         /* Hide everything except dashboard */
@@ -162,16 +162,16 @@ const FinancialDashboard = () => {
         }
       }
     `;
-    
+
     document.head.appendChild(printStyles);
-    
+
     // Brief delay to ensure styles are applied
     setTimeout(() => {
       window.print();
-      
+
       // Clean up after print
       setTimeout(() => {
-        const styleElement = document.getElementById('dashboard-print-styles');
+        const styleElement = document.getElementById("dashboard-print-styles");
         if (styleElement) {
           document.head.removeChild(styleElement);
         }
@@ -255,15 +255,20 @@ const FinancialDashboard = () => {
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Print Header - Only visible when printing */}
         <div className="hidden print:block print-section">
-          <h1 className="text-2xl font-bold text-center mb-2">Financial Dashboard Report</h1>
+          <h1 className="text-2xl font-bold text-center mb-2">
+            Financial Dashboard Report
+          </h1>
           <div className="text-center text-sm text-gray-600">
-            <p>Generated: {new Date().toLocaleDateString("en-US", {
-              year: "numeric",
-              month: "long", 
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}</p>
+            <p>
+              Generated:{" "}
+              {new Date().toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </p>
             <p>Period: {activeTimeRange}</p>
           </div>
           <hr className="my-4" />
@@ -352,7 +357,9 @@ const FinancialDashboard = () => {
         {/* Print-only current period indicator */}
         <div className="hidden print:block print-section">
           <div className="text-center p-3 border rounded">
-            <p className="font-medium">Current Analysis Period: {activeTimeRange}</p>
+            <p className="font-medium">
+              Current Analysis Period: {activeTimeRange}
+            </p>
           </div>
         </div>
 
@@ -549,8 +556,13 @@ const FinancialDashboard = () => {
         <div className="hidden print:block mt-6 p-4 border border-gray-300 rounded">
           <h4 className="font-semibold mb-2">Export Instructions:</h4>
           <ul className="text-sm space-y-1">
-            <li>• To save as PDF: Choose "Save as PDF" in the print dialog</li>
-            <li>• For best results: Use "More settings" and enable "Background graphics"</li>
+            <li>
+              • To save as PDF: Choose {'"Save as PDF"'} in the print dialog
+            </li>
+            <li>
+              • For best results: Use {'"More settings"'} and enable{" "}
+              {'"Background graphics"'}
+            </li>
             <li>• Layout: Portrait orientation recommended</li>
           </ul>
         </div>
